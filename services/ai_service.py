@@ -55,7 +55,7 @@ def generate_multiple_choice_questions(keywords: List[str]) -> List[Dict[str, An
         response = model.generate_content(prompt)
 
         logger.info("Parsing Gemini response")
-        # Safer parsing of generated questions
+        # Safer parsing of generated questions by ai
         try:
             questions = ast.literal_eval(response.text)
         except (SyntaxError, ValueError):
