@@ -5,7 +5,6 @@ from typing import List, Dict, Any
 from core.logging import logger
 from core.config import settings
 
-# Configure Gemini AI
 genai.configure(api_key=settings.GOOGLE_API_KEY)
 
 

@@ -32,8 +32,6 @@ def extract_keywords(text: str) -> List[str]:
            and not token.is_punct
            and len(token.text) > 2
     ]
-
-    # Remove duplicates while preserving order
     seen = set()
     unique_keywords = [word for word in keywords if not (word in seen or seen.add(word))]
 
