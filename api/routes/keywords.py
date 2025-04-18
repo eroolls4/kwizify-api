@@ -7,13 +7,15 @@ from services.nlp_service import extract_keywords
 from services.ai_service import generate_multiple_choice_questions
 from utils.pdf_utils import extract_text_from_pdf
 from models.database import get_db, Quiz, Question, QuestionOption, User
+from services.auth_service import get_current_user
 
 router = APIRouter()
 
 @router.post("/extract-keywords/", response_model=dict)
 async def extract_keywords_endpoint(
     file: UploadFile = File(...),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
     """
     Endpoint to extract keywords from uploaded file.
@@ -28,6 +30,10 @@ async def extract_keywords_endpoint(
     logger.info(f"Received file upload: {file.filename}")
 
     try:
+        # Verify user permission (can only create quizzes for themselves)
+        if current_user is None:
+            raise HTTPException(status_code=403, detail="Not authorized to create quiz for this user")
+
         contents = await file.read()
         logger.info(f"File size: {len(contents)} bytes")
 
@@ -61,7 +67,8 @@ async def save_quiz_endpoint(
     quiz_description: str,
     user_id: int,
     questions: List[dict],
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
     """
     Save a generated quiz to the database.
@@ -77,6 +84,10 @@ async def save_quiz_endpoint(
         dict: Created quiz ID
     """
     try:
+        # Verify user permission (can only create quizzes for themselves)
+        if current_user.id != user_id:
+            raise HTTPException(status_code=403, detail="Not authorized to create quiz for this user")
+
         # Verify user exists
         user = db.query(User).filter(User.id == user_id).first()
         if not user:

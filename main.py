@@ -35,9 +35,21 @@ async def startup_event():
         logger.error(f"Database initialization failed: {str(e)}")
         raise
 
+
 @app.get("/")
 async def root():
-    return {"message": "Welcome to the NLP Keyword Extractor API"}
+    """Root endpoint that returns basic API information."""
+    return {
+        "name": settings.APP_TITLE,
+        "description": settings.APP_DESCRIPTION,
+        "version": settings.APP_VERSION,
+        "status": "running"
+    }
+
+@app.get("/health")
+async def health_check():
+    """Health check endpoint."""
+    return {"status": "healthy"}
 
 if __name__ == "__main__":
     import uvicorn
