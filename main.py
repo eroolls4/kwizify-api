@@ -4,8 +4,9 @@ from core.config import settings
 from core.logging import logger
 from api.routes import router as api_router
 from models.database import init_db
+from auth.routes import router as auth_router
+from auth.middleware import jwt_middleware
 
-# Initialize the FastAPI app
 app = FastAPI(
     title=settings.APP_TITLE,
     description=settings.APP_DESCRIPTION,
@@ -21,10 +22,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Include API routes
-app.include_router(api_router, prefix="/api")
+app.middleware("http")(jwt_middleware)
 
-# Initialize the database on startup
+app.include_router(api_router, prefix="/api")
+app.include_router(auth_router, prefix="/auth", tags=["authentication"])
+
 @app.on_event("startup")
 async def startup_event():
     logger.info("Initializing application...")
