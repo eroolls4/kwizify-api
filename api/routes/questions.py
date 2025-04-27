@@ -1,6 +1,8 @@
 from fastapi import APIRouter, File, Depends, HTTPException
 from typing import List
 from sqlalchemy.orm import Session
+from starlette.responses import JSONResponse
+
 from core.logging import logger
 from services.ai_service import generate_multiple_choice_questions
 from models.database import get_db, Question, QuestionOption, Quiz
@@ -104,3 +106,16 @@ async def get_user_quizzes_endpoint(
         }
         for quiz in quizzes
     ]
+
+
+@router.options("/{path:path}", include_in_schema=False)
+async def options_route(path: str):
+    return JSONResponse(
+        status_code=200,
+        content={},
+        headers={
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+            "Access-Control-Allow-Headers": "Authorization, Content-Type"
+        }
+    )
