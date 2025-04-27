@@ -7,20 +7,28 @@ from models.database import User
 
 
 async def jwt_middleware(request: Request, call_next):
-    """
-    Middleware to check JWT tokens for protected routes.
-    Excludes auth endpoints and allows them to proceed without authentication.
-    """
-    # Exclude auth routes from JWT validation
-    if request.url.path.startswith("/auth") or request.url.path == "/":
-        return await call_next(request)
+    if request.method == "OPTIONS":
+        response = JSONResponse(content={"message": "Preflight OK"}, status_code=200)
+        response.headers["Access-Control-Allow-Origin"] = "*"
+        response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
+        response.headers["Access-Control-Allow-Headers"] = "Authorization, Content-Type"
+        return response
+
+    path = request.url.path
+
+    if not path.startswith("/api"):
+        response = await call_next(request)
+        response.headers["Access-Control-Allow-Origin"] = "*"
+        response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
+        response.headers["Access-Control-Allow-Headers"] = "Authorization, Content-Type"
+        return response
 
     authorization = request.headers.get("Authorization")
     if not authorization:
         return JSONResponse(
             status_code=status.HTTP_401_UNAUTHORIZED,
             content={"detail": "Authorization header missing"},
-            headers={"WWW-Authenticate": "Bearer"},
+            headers={"WWW-Authenticate": "Bearer", "Access-Control-Allow-Origin": "*"},
         )
 
     scheme, _, token = authorization.partition(" ")
@@ -28,14 +36,14 @@ async def jwt_middleware(request: Request, call_next):
         return JSONResponse(
             status_code=status.HTTP_401_UNAUTHORIZED,
             content={"detail": "Invalid authentication scheme"},
-            headers={"WWW-Authenticate": "Bearer"},
+            headers={"WWW-Authenticate": "Bearer", "Access-Control-Allow-Origin": "*"},
         )
 
     if not token:
         return JSONResponse(
             status_code=status.HTTP_401_UNAUTHORIZED,
             content={"detail": "Token missing"},
-            headers={"WWW-Authenticate": "Bearer"},
+            headers={"WWW-Authenticate": "Bearer", "Access-Control-Allow-Origin": "*"},
         )
 
     try:
@@ -45,7 +53,7 @@ async def jwt_middleware(request: Request, call_next):
             return JSONResponse(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 content={"detail": "Invalid token payload"},
-                headers={"WWW-Authenticate": "Bearer"},
+                headers={"WWW-Authenticate": "Bearer", "Access-Control-Allow-Origin": "*"},
             )
 
         db = SessionLocal()
@@ -55,7 +63,7 @@ async def jwt_middleware(request: Request, call_next):
                 return JSONResponse(
                     status_code=status.HTTP_401_UNAUTHORIZED,
                     content={"detail": "User not found"},
-                    headers={"WWW-Authenticate": "Bearer"},
+                    headers={"WWW-Authenticate": "Bearer", "Access-Control-Allow-Origin": "*"},
                 )
 
             request.state.user = user
@@ -67,8 +75,12 @@ async def jwt_middleware(request: Request, call_next):
         return JSONResponse(
             status_code=status.HTTP_401_UNAUTHORIZED,
             content={"detail": "Invalid token"},
-            headers={"WWW-Authenticate": "Bearer"},
+            headers={"WWW-Authenticate": "Bearer", "Access-Control-Allow-Origin": "*"},
         )
 
     # Continue processing the request
-    return await call_next(request)
+    response = await call_next(request)
+    response.headers["Access-Control-Allow-Origin"] = "*"
+    response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
+    response.headers["Access-Control-Allow-Headers"] = "Authorization, Content-Type"
+    return response
