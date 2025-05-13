@@ -45,7 +45,7 @@ def generate_multiple_choice_questions(keywords: List[str]) -> List[Dict[str, An
     """
 
     try:
-        model = genai.GenerativeModel('gemini-1.5-pro')
+        model = genai.GenerativeModel('gemini-1.5-flash-latest')
         generation_config = {
             'temperature': 0.7,
             'max_output_tokens': 2048

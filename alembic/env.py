@@ -9,7 +9,14 @@ from alembic import context
 import sys
 import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
-from models.database import Base
+from models.database import (
+    User,
+    Quiz,
+    Question,
+    QuestionOption,
+    QuizAttempt,
+    QuestionAnswer, Base
+)
 from core.config import settings
 
 # this is the Alembic Config object, which provides
