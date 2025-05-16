@@ -2,25 +2,29 @@ from typing import List, Optional
 
 from pydantic import BaseModel
 from sqlalchemy import Column, Integer, String, Text, Boolean, ForeignKey, DateTime, create_engine, Table, Float
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship, sessionmaker
 from datetime import datetime
 from core.config import settings
 
-# Create SQLAlchemy engine and session
-engine = create_engine(settings.DATABASE_URL)
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+# Create async engine
+engine = create_async_engine(settings.DATABASE_URL, echo=True)
+
+# Async session maker
+AsyncSessionLocal = sessionmaker(bind=engine, class_=AsyncSession, expire_on_commit=False)
 
 Base = declarative_base()
 
+# Dependency
+async def get_db():
+    async with AsyncSessionLocal() as session:
+        yield session
 
-# Database Dependency
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
+# Async init_db
+async def init_db():
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
 
 
 class User(Base):
@@ -136,5 +140,6 @@ class QuizAttemptResponse(BaseModel):
     answers: List[dict]
 
 # Create the tables
-def init_db():
-    Base.metadata.create_all(bind=engine)
+async def init_db():
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
