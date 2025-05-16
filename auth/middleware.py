@@ -1,8 +1,9 @@
 from fastapi import Request, HTTPException, status
 from fastapi.responses import JSONResponse
 from jose import jwt, JWTError
+from sqlalchemy.future import select
 from auth.utils import ALGORITHM, SECRET_KEY
-from models.database import SessionLocal
+from models.database import AsyncSessionLocal
 from models.database import User
 
 
@@ -56,9 +57,10 @@ async def jwt_middleware(request: Request, call_next):
                 headers={"WWW-Authenticate": "Bearer", "Access-Control-Allow-Origin": "*"},
             )
 
-        db = SessionLocal()
-        try:
-            user = db.query(User).filter(User.username == username).first()
+        async with AsyncSessionLocal() as db:
+            result = await db.execute(select(User).where(User.username == username))
+            user = result.scalars().first()
+
             if not user:
                 return JSONResponse(
                     status_code=status.HTTP_401_UNAUTHORIZED,
@@ -67,9 +69,6 @@ async def jwt_middleware(request: Request, call_next):
                 )
 
             request.state.user = user
-
-        finally:
-            db.close()
 
     except JWTError:
         return JSONResponse(

@@ -4,9 +4,9 @@ from jose import JWTError, jwt
 from passlib.context import CryptContext
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 from pydantic import BaseModel
-
+from sqlalchemy.future import select
 from core.config import settings
 from models.database import get_db
 from models.database import User
@@ -61,7 +61,7 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
 
-async def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
+async def get_current_user(token: str = Depends(oauth2_scheme), db: AsyncSession = Depends(get_db)):
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
@@ -75,18 +75,25 @@ async def get_current_user(token: str = Depends(oauth2_scheme), db: Session = De
         token_data = TokenData(username=username)
     except JWTError:
         raise credentials_exception
-    user = db.query(User).filter(User.username == token_data.username).first()
+
+    result = await db.execute(select(User).where(User.username == token_data.username))
+    user = result.scalars().first()
     if user is None:
         raise credentials_exception
     return user
 
-def get_user_by_username(db: Session, username: str):
-    return db.query(User).filter(User.username == username).first()
+# Get user by username
+async def get_user_by_username(db: AsyncSession, username: str):
+    result = await db.execute(select(User).where(User.username == username))
+    return result.scalars().first()
 
-def get_user_by_email(db: Session, email: str):
-    return db.query(User).filter(User.email == email).first()
+# Get user by email
+async def get_user_by_email(db: AsyncSession, email: str):
+    result = await db.execute(select(User).where(User.email == email))
+    return result.scalars().first()
 
-def create_user(db: Session, user: UserCreate):
+# Create a new user
+async def create_user(db: AsyncSession, user: UserCreate):
     hashed_password = get_password_hash(user.password)
     db_user = User(
         username=user.username,
@@ -94,12 +101,13 @@ def create_user(db: Session, user: UserCreate):
         hashed_password=hashed_password
     )
     db.add(db_user)
-    db.commit()
-    db.refresh(db_user)
+    await db.commit()
+    await db.refresh(db_user)
     return db_user
 
-def authenticate_user(db: Session, username: str, password: str):
-    user = get_user_by_username(db, username)
+# Authenticate user
+async def authenticate_user(db: AsyncSession, username: str, password: str):
+    user = await get_user_by_username(db, username)
     if not user:
         return False
     if not verify_password(password, user.hashed_password):

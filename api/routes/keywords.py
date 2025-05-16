@@ -1,6 +1,7 @@
 from fastapi import APIRouter, File, UploadFile, Depends, HTTPException
-from fastapi.responses import JSONResponse
+from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Session
+from sqlalchemy.future import select
 from typing import List
 from core.logging import logger
 from services.nlp_service import extract_keywords
@@ -61,24 +62,16 @@ async def save_quiz_endpoint(
     quiz_description: str,
     user_id: int,
     questions: List[dict],
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_db)
 ):
     """
     Save a generated quiz to the database.
-
-    Args:
-        quiz_title (str): Title of the quiz
-        quiz_description (str): Description of the quiz
-        user_id (int): ID of the user creating the quiz
-        questions (List[dict]): List of questions with options
-        db (Session): Database session
-
-    Returns:
-        dict: Created quiz ID
     """
     try:
         # Verify user exists
-        user = db.query(User).filter(User.id == user_id).first()
+        result = await db.execute(select(User).where(User.id == user_id))
+        user = result.scalars().first()
+
         if not user:
             raise HTTPException(status_code=404, detail="User not found")
 
@@ -89,20 +82,18 @@ async def save_quiz_endpoint(
             creator_id=user_id
         )
         db.add(new_quiz)
-        db.flush()  # Get the ID without committing
+        await db.flush()  # async flush to get ID
 
         # Add questions and options
         for q_data in questions:
-            # Create question
             question = Question(
                 quiz_id=new_quiz.id,
                 question_text=q_data["question"]
             )
             db.add(question)
-            db.flush()
+            await db.flush()  # async flush to get question.id
 
-            # Create options
-            for i, option_text in enumerate(q_data["options"]):
+            for option_text in q_data["options"]:
                 is_correct = option_text == q_data["correct_answer"]
                 option = QuestionOption(
                     question_id=question.id,
@@ -111,10 +102,10 @@ async def save_quiz_endpoint(
                 )
                 db.add(option)
 
-        db.commit()
+        await db.commit()
         return {"quiz_id": new_quiz.id}
 
     except Exception as e:
-        db.rollback()
+        await db.rollback()
         logger.error(f"Error saving quiz: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Failed to save quiz: {str(e)}")
