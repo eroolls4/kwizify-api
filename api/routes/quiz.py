@@ -36,7 +36,7 @@ async def start_quiz_attempt(
         )
 
         db.add(attempt)
-        await db.commit()
+        await db.flush()
         await db.refresh(attempt)
 
     return {
@@ -87,7 +87,17 @@ async def submit_quiz_attempt(
         correct_count = 0
 
         for i, question in enumerate(questions):
-            selected_letter = selected_options[i].upper()
+            selected_letter = selected_options[i].strip().upper()
+
+            if len(selected_letter) != 1 or selected_letter not in "ABCD":
+                db.add(QuestionAnswer(
+                    attempt_id=attempt.id,
+                    question_id=question.id,
+                    selected_option_id=None,
+                    is_correct=False
+                ))
+                continue
+
             option_index = ord(selected_letter) - ord('A')
 
             # Get options for this question ordered by ID (A = 0th, B = 1st, etc.)
@@ -118,7 +128,7 @@ async def submit_quiz_attempt(
         score = (correct_count / len(questions)) * 100
 
         attempt.score = score
-        await db.commit()
+        await db.flush()
         await db.refresh(attempt)
 
     return {
